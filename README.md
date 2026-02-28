@@ -14,7 +14,7 @@ En vez de copiar/pegar tabla por tabla:
    - y en qué marcador de tu plantilla pegarla.
 3. Ejecutás un comando y obtenés una memoria final en tu formato.
 
-Opcionalmente, también podés convertir el resultado a PDF (si tenés LibreOffice instalado).
+Opcionalmente, también podés convertir el resultado a PDF.
 
 ---
 
