@@ -44,31 +44,15 @@ pip --version
 
 Si estos comandos responden con versión, está OK.
 
-### 2) (Opcional) Instalar LibreOffice para salida PDF
-
-Si querés que además del Word final se genere PDF automático:
-
-1. Instalá LibreOffice: https://www.libreoffice.org/download/download-libreoffice/
-2. Cerrá y abrí de nuevo la terminal.
-3. Probá:
-
-```powershell
-soffice --version
-```
-
-Si responde, ya podés usar `--output-pdf`.
-
-### 3) Descargar este proyecto (paso a paso MUY simple)
-
-Si te confundía esta parte, hacelo así (recomendado):
+### 2) Descargar este proyecto
 
 #### Opción A — Sin Git (más fácil)
 
 1. Abrí en el navegador la página del repositorio.
 2. Hacé clic en **Code** → **Download ZIP**.
-3. Guardá el ZIP en una carpeta fácil (por ejemplo `Documentos`).
-4. Descomprimí el ZIP (clic derecho → "Extraer todo...").
-5. Entrá a la carpeta descomprimida (ejemplo: `CypeCAD-Automation-main`).
+3. Guardá el ZIP en una carpeta fácil.
+4. Descomprimí el ZIP.
+5. Entrá a la carpeta descomprimida.
 6. Dentro de esa carpeta, abrí terminal:
    - clic en la barra de dirección del explorador,
    - escribí `powershell`,
@@ -80,16 +64,7 @@ Comprobación rápida (deberías ver `README.md`, `src`, `datos`):
 dir
 ```
 
-#### Opción B — Con Git (si ya lo usás)
-
-```powershell
-git clone <URL_DE_TU_REPO>
-cd CypeCAD-Automation
-```
-
-> Si el repositorio se baja con otro nombre de carpeta, usá `cd <nombre_real_de_la_carpeta>`.
-
-### 4) Crear entorno virtual e instalar dependencias
+### 3) Crear entorno virtual e instalar dependencias
 
 En la carpeta del proyecto:
 
