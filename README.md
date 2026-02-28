@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 ## Guía paso a paso desde cero (sin tener nada instalado)
 
-> Esta guía está pensada para Windows (caso más común para CYPECAD). Al final dejo comandos equivalentes para Linux/macOS.
+> Esta guía está pensada para Windows (caso más común para CYPECAD).
 
 ### 1) Instalar Python
 
