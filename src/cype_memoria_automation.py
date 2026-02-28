@@ -8,26 +8,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional
-
-import yaml
-from docx import Document
-from docx.document import Document as DocxDocumentType
-from docx.oxml.text.paragraph import CT_P
-from docx.oxml.table import CT_Tbl
-from docx.table import Table
-from docx.text.paragraph import Paragraph
-#!/usr/bin/env python3
-from __future__ import annotations
-
-import argparse
-import copy
-import re
-import shutil
-import subprocess
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Sequence
 
 import yaml
 from docx import Document
@@ -100,7 +81,7 @@ def matches_table_header(table: Table, header_regex: Optional[str]) -> bool:
     return bool(header_text and re.search(header_regex, header_text))
 
 
-def find_table(source_doc: DocxDocumentType, rule: SectionRule) -> Optional[Table]:
+def find_table_in_document(source_doc: DocxDocumentType, rule: SectionRule) -> Optional[Table]:
     """
     Selection rules:
     - If source_trigger_regex exists: start matching from that paragraph onward.
@@ -133,6 +114,14 @@ def find_table(source_doc: DocxDocumentType, rule: SectionRule) -> Optional[Tabl
             if tables_seen == rule.table_offset_after_trigger:
                 return block
     return None
+
+
+def find_table_in_sources(source_docs: Sequence[tuple[Path, DocxDocumentType]], rule: SectionRule) -> tuple[Optional[Table], Optional[Path]]:
+    for source_path, source_doc in source_docs:
+        table = find_table_in_document(source_doc, rule)
+        if table is not None:
+            return table, source_path
+    return None, None
 
 
 def find_placeholder_paragraph(document: DocxDocumentType, placeholder: str) -> Optional[Paragraph]:
@@ -183,21 +172,64 @@ def convert_to_pdf(docx_path: Path) -> Path:
     return pdf_path
 
 
-def run(source_docx: Path, template_docx: Path, mapping_yaml: Path, output_docx: Path, output_pdf: bool) -> None:
+def list_source_docx_files(source_docx: Optional[List[Path]], source_dir: Optional[Path]) -> List[Path]:
+    source_files: List[Path] = []
+
+    if source_docx:
+        source_files.extend(source_docx)
+
+    if source_dir:
+        if not source_dir.exists() or not source_dir.is_dir():
+            raise ValueError(f"La carpeta de fuentes no existe o no es válida: {source_dir}")
+        source_files.extend(sorted(source_dir.glob("*.docx")))
+
+    # remove duplicates while preserving order
+    unique: List[Path] = []
+    seen = set()
+    for path in source_files:
+        resolved = str(path.resolve())
+        if resolved not in seen:
+            seen.add(resolved)
+            unique.append(path)
+
+    if not unique:
+        raise ValueError("No se encontraron DOCX de entrada. Usá --source-docx y/o --source-dir.")
+
+    missing = [str(p) for p in unique if not p.exists()]
+    if missing:
+        raise ValueError(f"No existen estos archivos fuente: {', '.join(missing)}")
+
+    return unique
+
+
+def run(
+    source_docx: Optional[List[Path]],
+    source_dir: Optional[Path],
+    template_docx: Path,
+    mapping_yaml: Path,
+    output_docx: Path,
+    output_pdf: bool,
+) -> None:
     rules = load_rules(mapping_yaml)
     if not rules:
         raise ValueError("No se encontraron secciones en el archivo de mapeo YAML.")
 
-    source_doc = Document(str(source_docx))
+    source_files = list_source_docx_files(source_docx, source_dir)
+    source_docs = [(source_file, Document(str(source_file))) for source_file in source_files]
     template_doc = Document(str(template_docx))
+
+    print(f"Fuentes detectadas: {len(source_docs)}")
+    for source_file, _ in source_docs:
+        print(f"  - {source_file}")
 
     print(f"Reglas cargadas: {len(rules)}")
     for rule in rules:
-        table = find_table(source_doc, rule)
+        table, matched_source = find_table_in_sources(source_docs, rule)
         if table is None:
             print(
-                f"[WARN] {rule.id}: no se encontró tabla (trigger={rule.source_trigger_regex!r}, "
-                f"header={rule.table_header_regex!r}, offset={rule.table_offset_after_trigger})"
+                f"[WARN] {rule.id}: no se encontró tabla en ninguna fuente "
+                f"(trigger={rule.source_trigger_regex!r}, header={rule.table_header_regex!r}, "
+                f"offset={rule.table_offset_after_trigger})"
             )
             continue
 
@@ -206,7 +238,7 @@ def run(source_docx: Path, template_docx: Path, mapping_yaml: Path, output_docx:
             print(f"[WARN] {rule.id}: no se encontró marcador {rule.target_placeholder!r} en plantilla")
             continue
 
-        print(f"[OK] {rule.id}: tabla insertada en {rule.target_placeholder}")
+        print(f"[OK] {rule.id}: tabla insertada en {rule.target_placeholder} (fuente: {matched_source})")
 
     output_docx.parent.mkdir(parents=True, exist_ok=True)
     template_doc.save(str(output_docx))
@@ -219,9 +251,19 @@ def run(source_docx: Path, template_docx: Path, mapping_yaml: Path, output_docx:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Automatiza el pegado de tablas desde memoria CYPECAD a plantilla de memoria propia."
+        description="Automatiza el pegado de tablas desde memorias DOCX de CYPECAD a plantilla de memoria propia."
     )
-    parser.add_argument("--source-docx", required=True, type=Path, help="DOCX exportado desde CYPECAD")
+    parser.add_argument(
+        "--source-docx",
+        nargs="+",
+        type=Path,
+        help="Uno o más DOCX exportados desde CYPECAD (ej: --source-docx a.docx b.docx)",
+    )
+    parser.add_argument(
+        "--source-dir",
+        type=Path,
+        help="Carpeta con múltiples DOCX fuente; se procesan todos los *.docx",
+    )
     parser.add_argument("--template-docx", required=True, type=Path, help="Plantilla DOCX de memoria de cálculo")
     parser.add_argument("--mapping-yaml", required=True, type=Path, help="YAML con reglas de extracción/inserción")
     parser.add_argument("--output-docx", required=True, type=Path, help="Ruta del DOCX final")
@@ -237,6 +279,7 @@ def main() -> None:
     args = parse_args()
     run(
         source_docx=args.source_docx,
+        source_dir=args.source_dir,
         template_docx=args.template_docx,
         mapping_yaml=args.mapping_yaml,
         output_docx=args.output_docx,
@@ -246,7 +289,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 
 if __name__ == "__main__":
     main()
