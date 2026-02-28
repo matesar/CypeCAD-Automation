@@ -17,14 +17,34 @@ from docx.oxml.text.paragraph import CT_P
 from docx.oxml.table import CT_Tbl
 from docx.table import Table
 from docx.text.paragraph import Paragraph
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import copy
+import re
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable, List, Optional
+
+import yaml
+from docx import Document
+from docx.document import Document as DocxDocumentType
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 
 
 @dataclass
 class SectionRule:
     id: str
-    source_trigger_regex: str
-    table_offset_after_trigger: int
     target_placeholder: str
+    source_trigger_regex: Optional[str] = None
+    table_header_regex: Optional[str] = None
+    table_offset_after_trigger: int = 1
 
 
 def iter_block_items(document: DocxDocumentType) -> Iterable[Paragraph | Table]:
@@ -44,10 +64,19 @@ def load_rules(mapping_path: Path) -> List[SectionRule]:
     sections = raw.get("sections", [])
     rules: List[SectionRule] = []
     for i, section in enumerate(sections, start=1):
+        source_trigger_regex = section.get("source_trigger_regex")
+        table_header_regex = section.get("table_header_regex")
+        if not source_trigger_regex and not table_header_regex:
+            raise ValueError(
+                f"La sección {section.get('id', f'section_{i}')!r} debe tener al menos "
+                "'source_trigger_regex' o 'table_header_regex'."
+            )
+
         rules.append(
             SectionRule(
                 id=section.get("id", f"section_{i}"),
-                source_trigger_regex=section["source_trigger_regex"],
+                source_trigger_regex=source_trigger_regex,
+                table_header_regex=table_header_regex,
                 table_offset_after_trigger=int(section.get("table_offset_after_trigger", 1)),
                 target_placeholder=section["target_placeholder"],
             )
@@ -55,24 +84,54 @@ def load_rules(mapping_path: Path) -> List[SectionRule]:
     return rules
 
 
-def find_table_after_trigger(source_doc: DocxDocumentType, regex: str, offset: int) -> Optional[Table]:
-    trigger_pattern = re.compile(regex)
-    seen_trigger = False
-    tables_after_trigger = 0
+def get_table_header_text(table: Table) -> str:
+    """Return a normalized string from the first row of the table."""
+    if not table.rows:
+        return ""
+    first_row = table.rows[0]
+    values = [cell.text.strip() for cell in first_row.cells if cell.text.strip()]
+    return " | ".join(values)
+
+
+def matches_table_header(table: Table, header_regex: Optional[str]) -> bool:
+    if not header_regex:
+        return True
+    header_text = get_table_header_text(table)
+    return bool(header_text and re.search(header_regex, header_text))
+
+
+def find_table(source_doc: DocxDocumentType, rule: SectionRule) -> Optional[Table]:
+    """
+    Selection rules:
+    - If source_trigger_regex exists: start matching from that paragraph onward.
+    - If table_header_regex exists: only tables whose first-row header matches are considered.
+    - table_offset_after_trigger picks the Nth considered table.
+    """
+    tables_seen = 0
+
+    if rule.source_trigger_regex:
+        trigger_pattern = re.compile(rule.source_trigger_regex)
+        seen_trigger = False
+
+        for block in iter_block_items(source_doc):
+            if isinstance(block, Paragraph):
+                text = block.text.strip()
+                if text and trigger_pattern.search(text):
+                    seen_trigger = True
+                    tables_seen = 0
+                    continue
+
+            if seen_trigger and isinstance(block, Table) and matches_table_header(block, rule.table_header_regex):
+                tables_seen += 1
+                if tables_seen == rule.table_offset_after_trigger:
+                    return block
+        return None
 
     for block in iter_block_items(source_doc):
-        if isinstance(block, Paragraph):
-            text = block.text.strip()
-            if text and trigger_pattern.search(text):
-                seen_trigger = True
-                tables_after_trigger = 0
-                continue
-
-        if seen_trigger and isinstance(block, Table):
-            tables_after_trigger += 1
-            if tables_after_trigger == offset:
+        if isinstance(block, Table) and matches_table_header(block, rule.table_header_regex):
+            tables_seen += 1
+            if tables_seen == rule.table_offset_after_trigger:
                 return block
-
     return None
 
 
@@ -134,9 +193,12 @@ def run(source_docx: Path, template_docx: Path, mapping_yaml: Path, output_docx:
 
     print(f"Reglas cargadas: {len(rules)}")
     for rule in rules:
-        table = find_table_after_trigger(source_doc, rule.source_trigger_regex, rule.table_offset_after_trigger)
+        table = find_table(source_doc, rule)
         if table is None:
-            print(f"[WARN] {rule.id}: no se encontró tabla para regex={rule.source_trigger_regex!r}")
+            print(
+                f"[WARN] {rule.id}: no se encontró tabla (trigger={rule.source_trigger_regex!r}, "
+                f"header={rule.table_header_regex!r}, offset={rule.table_offset_after_trigger})"
+            )
             continue
 
         inserted = replace_placeholder_with_table(template_doc, rule.target_placeholder, table)
@@ -180,6 +242,10 @@ def main() -> None:
         output_docx=args.output_docx,
         output_pdf=args.output_pdf,
     )
+
+
+if __name__ == "__main__":
+    main()
 
 
 if __name__ == "__main__":
