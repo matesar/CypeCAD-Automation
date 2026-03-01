@@ -13,6 +13,7 @@ from typing import Iterable, List, Optional, Sequence
 import yaml
 from docx import Document
 from docx.document import Document as DocxDocumentType
+from docx.oxml import OxmlElement
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.table import Table
@@ -174,10 +175,17 @@ def replace_placeholder_with_tables(template_doc: DocxDocumentType, placeholder:
     paragraph_index = parent.index(paragraph._p)
 
     insertion_index = paragraph_index + 1
-    for table in tables_to_insert:
+    total_tables = len(tables_to_insert)
+    for idx, table in enumerate(tables_to_insert, start=1):
         new_table_xml = copy.deepcopy(table._tbl)
         parent.insert(insertion_index, new_table_xml)
         insertion_index += 1
+
+        # Add a blank paragraph between tables so match_mode=all does not paste them glued together.
+        if idx < total_tables:
+            spacer_paragraph = OxmlElement("w:p")
+            parent.insert(insertion_index, spacer_paragraph)
+            insertion_index += 1
 
     paragraph.text = paragraph.text.replace(placeholder, "").strip()
     if not paragraph.text:
@@ -332,4 +340,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
