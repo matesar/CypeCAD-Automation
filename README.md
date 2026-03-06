@@ -1,6 +1,6 @@
 # Automatización CYPECAD → Memoria de cálculo (Word/PDF)
 
-Este repositorio contiene una utilidad para automatizar el paso de tablas y resultados desde un `.docx` exportado por CYPECAD hacia tu plantilla de memoria de cálculo en Word.
+Este repositorio contiene una utilidad para automatizar el paso de tablas y resultados desde un `.docx` exportado por CYPECAD hacia una plantilla de memoria de cálculo en Word.
 
 ## ¿Qué resuelve?
 
