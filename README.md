@@ -73,7 +73,10 @@ pip install -r requirements.txt
 ```
 
 Si todo salió bien, ya está listo para correr.
-Si tira error en activar Scripts ejecutá: ```Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned```
+Si tira error en activar Scripts ejecutá: 
+```
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
 Despues activas Scripts y requirements.
 
 ### 5) Preparar tus 3 archivos de entrada
