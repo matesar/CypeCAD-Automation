@@ -1,0 +1,20 @@
+sections:
+  - id: vigas_momentos
+    source_trigger_regex: "(?i)vigas.*momento"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{VIGAS_MOMENTOS}}"
+
+  - id: vigas_flechas
+    source_trigger_regex: "(?i)vigas.*flecha"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{VIGAS_FLECHAS}}"
+
+  - id: columnas_cuantia
+    source_trigger_regex: "(?i)columnas.*cuant[ií]a"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{COLUMNAS_CUANTIA}}"
+
+  - id: fundaciones_verificacion
+    source_trigger_regex: "(?i)fundaciones.*verific"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{FUNDACIONES_VERIFICACION}}"
