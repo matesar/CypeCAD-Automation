@@ -1,0 +1,40 @@
+sections:
+  - id: vigas_momentos
+    source_trigger_regex: "(?i)vigas.*momento"
+    table_header_regex: "(?i)tramo|M\+|M-"
+    table_offset_after_trigger: 1
+    match_mode: "all"
+    target_placeholder: "{{VIGAS_MOMENTOS}}"
+
+  - id: vigas_flechas
+    source_trigger_regex: "(?i)vigas.*flecha"
+    table_header_regex: "(?i)flecha|L/"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{VIGAS_FLECHAS}}"
+
+  - id: planilla_excel_por_nombre
+    source_file_regex: "(?i)resumen_estructural\\.xlsx$"
+    excel_table_name: "TablaCuantias"
+    match_mode: "single"
+    target_placeholder: "{{EXCEL_CUANTIAS}}"
+
+  - id: planilla_excel_por_rango
+    source_file_regex: "(?i)resumen_estructural\\.xlsx$"
+    excel_sheet_name: "Resumen"
+    excel_range: "B3:G18"
+    match_mode: "single"
+    target_placeholder: "{{EXCEL_RESUMEN}}"
+
+  - id: imagenes_esquema
+    source_file_regex: "(?i)porticos\\.docx$"
+    source_trigger_regex: "(?i)esquema|detalle"
+    docx_image: true
+    image_offset_after_trigger: 1
+    image_width_inches: 5.8
+    match_mode: "all"
+    target_placeholder: "{{ESQUEMAS_PORTICOS}}"
+
+  - id: fundaciones_verificacion
+    table_header_regex: "(?i)zapata|tensi[oó]n|punzonamiento"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{FUNDACIONES_VERIFICACION}}"

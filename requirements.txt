@@ -1,0 +1,4 @@
+python-docx>=1.1.0
+PyYAML>=6.0.1
+openpyxl>=3.1.2
+excel2img>=1.4.0

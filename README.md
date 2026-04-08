@@ -1,0 +1,395 @@
+# Automatización CYPECAD → Memoria de cálculo (Word/PDF)
+
+Este repositorio contiene una utilidad para automatizar el paso de tablas, imágenes y resultados desde un `.docx` exportado por CYPECAD hacia tu plantilla de memoria de cálculo en Word.
+
+## ¿Qué resuelve?
+
+En vez de copiar/pegar tabla por tabla:
+
+1. Exportás la memoria/resultados desde CYPECAD a `docx`.
+2. Definís un archivo de mapeo (`yaml`) con reglas simples:
+   - qué texto buscar en párrafos del documento de CYPE (**opcional**),
+   - qué texto buscar en el encabezado de la tabla (**opcional y recomendado**),
+   - si querés traer una imagen del DOCX en vez de una tabla,
+   - qué tabla tomar según el orden,
+   - y en qué marcador de tu plantilla pegarla.
+3. Ejecutás un comando y obtenés una memoria final en tu formato.
+
+Opcionalmente, también podés convertir el resultado a PDF (si tenés LibreOffice instalado).
+
+---
+
+## Instalación
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+## Guía paso a paso desde cero (sin tener nada instalado)
+
+> Esta guía está pensada para Windows (caso más común para CYPECAD). Al final dejo comandos equivalentes para Linux/macOS.
+
+### 1) Instalar Python
+
+1. Entrá a: https://www.python.org/downloads/
+2. Descargá **Python 3.11 o 3.12**.
+3. Durante la instalación, marcá la opción **"Add Python to PATH"**.
+4. Verificá en una terminal (CMD o PowerShell):
+
+```powershell
+python --version
+pip --version
+```
+
+Si estos comandos responden con versión, está OK.
+
+### 2) (Opcional) Instalar LibreOffice para salida PDF
+
+Si querés que además del Word final se genere PDF automático:
+
+1. Instalá LibreOffice: https://www.libreoffice.org/download/download-libreoffice/
+2. Cerrá y abrí de nuevo la terminal.
+3. Probá:
+
+```powershell
+soffice --version
+```
+
+Si responde, ya podés usar `--output-pdf`.
+
+### 3) Descargar este proyecto (paso a paso MUY simple)
+
+Si te confundía esta parte, hacelo así (recomendado):
+
+#### Opción A — Sin Git (más fácil)
+
+1. Abrí en el navegador la página del repositorio.
+2. Hacé clic en **Code** → **Download ZIP**.
+3. Guardá el ZIP en una carpeta fácil (por ejemplo `Documentos`).
+4. Descomprimí el ZIP (clic derecho → "Extraer todo...").
+5. Entrá a la carpeta descomprimida (ejemplo: `CypeCAD-Automation-main`).
+6. Dentro de esa carpeta, abrí terminal:
+   - clic en la barra de dirección del explorador,
+   - escribí `powershell`,
+   - presioná Enter.
+
+Comprobación rápida (deberías ver `README.md`, `src`, `datos`):
+
+```powershell
+dir
+```
+
+#### Opción B — Con Git (si ya lo usás)
+
+```powershell
+git clone <URL_DE_TU_REPO>
+cd CypeCAD-Automation
+```
+
+> Si el repositorio se baja con otro nombre de carpeta, usá `cd <nombre_real_de_la_carpeta>`.
+
+### 4) Crear entorno virtual e instalar dependencias
+
+En la carpeta del proyecto:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Si todo salió bien, ya está listo para correr.
+
+### 5) Preparar tus 3 archivos de entrada
+
+Dentro de la carpeta `datos/` vas a dejar:
+
+1. `fuentes/` (carpeta) → ahí ponés **todos** los DOCX exportados por CYPECAD (5 o 6 si querés).
+2. `plantilla_memoria.docx` → tu plantilla personal de memoria.
+3. `mapeo.yaml` → reglas para saber qué tabla va en qué marcador.
+
+Podés partir del ejemplo:
+
+```powershell
+copy datos\mapeo.example.yaml datos\mapeo.yaml
+```
+
+### 6) Preparar placeholders en tu plantilla Word
+
+En `plantilla_memoria.docx`, escribí marcadores como texto (uno por párrafo), por ejemplo:
+
+- `{{VIGAS_MOMENTOS}}`
+- `{{VIGAS_FLECHAS}}`
+- `{{COLUMNAS_CUANTIA}}`
+- `{{FUNDACIONES_VERIFICACION}}`
+
+Esos textos deben coincidir exactamente con `target_placeholder` en el YAML.
+
+### 7) Ajustar `mapeo.yaml`
+
+Para cada bloque, definí:
+
+- `source_trigger_regex` (opcional): texto/regex que aparece antes de la tabla en el DOCX de CYPE.
+- `table_header_regex` (opcional): regex del encabezado de tabla (primera fila) para reconocerla aunque no tenga título arriba.
+- `table_offset_after_trigger`: índice inicial de tabla válida (1, 2, 3...).
+- `docx_image` (opcional): si vale `true`, la regla busca imágenes dentro de los DOCX fuente en vez de tablas.
+- `image_offset_after_trigger` (opcional): índice inicial de imagen válida (1, 2, 3...).
+- `image_width_inches` (opcional): ancho con el que se inserta una imagen en Word.
+- `match_mode` (opcional): `single` (default) o `all`.
+  - `single`: inserta una sola tabla (comportamiento fijo).
+  - `all`: inserta todas las tablas o imágenes coincidentes desde ese índice (ideal para vigas con N variable o varias figuras).
+- `target_placeholder`: marcador de tu plantilla.
+
+### 8) Ejecutar la generación de la memoria final
+
+```powershell
+python src/cype_memoria_automation.py `
+  --source-dir datos/fuentes `
+  --template-docx datos/plantilla_memoria.docx `
+  --mapping-yaml datos/mapeo.yaml `
+  --output-docx salida/memoria_final.docx
+```
+
+Resultado: `salida/memoria_final.docx`
+
+También podés pasar archivos explícitos en una sola ejecución:
+
+```powershell
+python src/cype_memoria_automation.py `
+  --source-docx datos\vigas.docx datos\columnas.docx datos\fundaciones.docx `
+  --template-docx datos/plantilla_memoria.docx `
+  --mapping-yaml datos/mapeo.yaml `
+  --output-docx salida/memoria_final.docx
+```
+
+Ejemplo mezclando DOCX + Excel explícitos:
+
+```powershell
+python src/cype_memoria_automation.py `
+  --source-docx datos\vigas.docx datos\columnas.docx `
+  --source-xlsx datos\resumen_estructural.xlsx `
+  --template-docx datos/plantilla_memoria.docx `
+  --mapping-yaml datos/mapeo.yaml `
+  --output-docx salida/memoria_final.docx
+```
+
+### 9) Ejecutar también con PDF automático
+
+```powershell
+python src/cype_memoria_automation.py `
+  --source-dir datos/fuentes `
+  --template-docx datos/plantilla_memoria.docx `
+  --mapping-yaml datos/mapeo.yaml `
+  --output-docx salida/memoria_final.docx `
+  --output-pdf
+```
+
+Resultado adicional: `salida/memoria_final.pdf`
+
+### 10) Flujo operativo diario (resumen)
+
+1. Calculás en CYPECAD.
+2. Exportás DOCX de resultados.
+3. Reemplazás/actualizás los DOCX dentro de `datos/fuentes/`.
+4. Ejecutás el comando una sola vez.
+5. Te queda la memoria en tu formato, con tablas cargadas automáticamente.
+
+---
+
+## Linux/macOS (comandos equivalentes rápidos)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+python src/cype_memoria_automation.py \
+  --source-dir datos/fuentes \
+  --template-docx datos/plantilla_memoria.docx \
+  --mapping-yaml datos/mapeo.yaml \
+  --output-docx salida/memoria_final.docx
+```
+
+## Fuentes múltiples (nuevo)
+
+- `--source-dir`: recorre todos los `*.docx` y `*.xlsx` de una carpeta (recomendado para centralizar todo en `datos/fuentes`).
+- `--source-docx`: permite pasar varios DOCX puntuales en el mismo comando.
+- `--source-xlsx`: permite pasar varios Excel puntuales en el mismo comando.
+- Podés combinar ambos; por regla, el script busca en todas las fuentes en orden.
+  - con `match_mode: single` toma la primera coincidencia,
+  - con `match_mode: all` junta todas las coincidencias.
+
+## Estructura recomendada
+
+- `datos/fuentes/`: carpeta con 1..N fuentes mezcladas DOCX/XLSX (ej: vigas.docx, columnas.docx, resumen_estructural.xlsx).
+- `datos/plantilla_memoria.docx`: tu plantilla Word con marcadores.
+- `datos/mapeo.yaml`: reglas de extracción/inserción.
+- `salida/memoria_final.docx`: resultado generado.
+
+## Marcadores en plantilla
+
+En tu plantilla Word, insertá marcadores de texto únicos, por ejemplo:
+
+- `{{VIGAS_MOMENTOS}}`
+- `{{VIGAS_FLECHAS}}`
+- `{{COLUMNAS_CUANTIA}}`
+- `{{FUNDACIONES_VERIFICACION}}`
+
+Cada marcador debe estar en un párrafo propio para simplificar el reemplazo.
+
+## Ejemplo de `mapeo.yaml`
+
+```yaml
+sections:
+  - id: vigas_momentos
+    source_trigger_regex: "(?i)vigas.*momento"
+    table_header_regex: "(?i)tramo|M\+|M-"
+    table_offset_after_trigger: 1
+    match_mode: "all"
+    target_placeholder: "{{VIGAS_MOMENTOS}}"
+
+  - id: vigas_flechas
+    source_trigger_regex: "(?i)vigas.*flecha"
+    table_header_regex: "(?i)flecha|L/"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{VIGAS_FLECHAS}}"
+
+  - id: fundaciones_verificacion
+    table_header_regex: "(?i)zapata|tensi[oó]n|punzonamiento"
+    table_offset_after_trigger: 1
+    target_placeholder: "{{FUNDACIONES_VERIFICACION}}"
+```
+
+### Parámetros de cada sección
+
+- `id`: nombre interno.
+- `source_trigger_regex` (opcional): regex para detectar el párrafo disparador en el documento CYPE.
+- `table_header_regex` (opcional): regex para detectar el texto del **encabezado (primera fila)** de la tabla.
+- `table_offset_after_trigger`:
+  - si hay `source_trigger_regex`: toma desde la N-ésima tabla válida después del trigger,
+  - si NO hay `source_trigger_regex`: toma desde la N-ésima tabla válida en todo el documento.
+- `match_mode` (opcional, default `single`):
+  - `single`: inserta solo una tabla,
+  - `all`: inserta todas las tablas coincidentes desde `table_offset_after_trigger`.
+- `target_placeholder`: marcador en plantilla de Word.
+
+> Debe existir al menos uno de estos dos campos: `source_trigger_regex` o `table_header_regex`.
+
+### Caso vigas con N variable
+
+Para vigas, donde la cantidad depende de los pórticos del edificio, usá:
+
+```yaml
+- id: vigas_momentos
+  source_trigger_regex: "(?i)vigas.*momento"
+  table_header_regex: "(?i)tramo|M\+|M-"
+  table_offset_after_trigger: 1
+  match_mode: "all"
+  target_placeholder: "{{VIGAS_MOMENTOS}}"
+```
+
+Con eso el script inserta **todas** las tablas de vigas que encuentre (no tenés que definir N manualmente).
+
+Además, en `match_mode: "all"` se agrega automáticamente una línea/párrafo en blanco entre cada tabla para que no queden pegadas.
+
+
+### Reglas Excel (nuevo)
+
+Además de reglas DOCX, ahora podés definir reglas que leen desde `.xlsx`:
+
+- `excel_table_name`: nombre de tabla estructurada de Excel (Insertar > Tabla).
+- `excel_range`: rango A1 (ej. `B3:G18`) o con hoja incluida (ej. `Resumen!B3:G18`).
+  - Si usás `match_mode: all`, el rango se toma como plantilla (alto/ancho) y el script detecta bloques repetidos en vertical automáticamente hasta encontrar una primera fila vacía.
+- `excel_sheet_name` (opcional): hoja donde buscar cuando usás `excel_table_name` o un rango sin `!`.
+- `source_file_regex` (opcional): filtra qué archivo fuente usar (ej. `(?i)resumen_estructural\.xlsx$`).
+
+> Para regla Excel, alcanza con `excel_table_name` o `excel_range`.
+> Las reglas Excel se insertan como **imagen PNG** dentro del Word (en lugar de tabla DOCX) para conservar mejor el formato visual de la planilla.
+> Esta exportación usa `excel2img` (copia real como imagen desde Excel), por lo que en Windows necesitás tener Microsoft Excel instalado.
+
+Ejemplo por nombre de tabla:
+
+```yaml
+- id: excel_cuantias
+  source_file_regex: "(?i)resumen_estructural\.xlsx$"
+  excel_table_name: "TablaCuantias"
+  target_placeholder: "{{EXCEL_CUANTIAS}}"
+```
+
+Ejemplo por rango:
+
+```yaml
+- id: excel_resumen
+  source_file_regex: "(?i)resumen_estructural\.xlsx$"
+  excel_sheet_name: "Resumen"
+  excel_range: "B3:G18"
+  target_placeholder: "{{EXCEL_RESUMEN}}"
+```
+
+### Reglas de imagen DOCX (nuevo)
+
+Si CYPE te genera figuras, esquemas o capturas dentro de un `.docx`, también podés traerlas a tu memoria:
+
+- `docx_image: true`: activa búsqueda de imágenes DOCX.
+- `source_trigger_regex` (opcional): texto que aparece antes de la imagen.
+- `image_offset_after_trigger` (opcional): qué imagen tomar desde ese punto.
+- `image_width_inches` (opcional): ancho de inserción en Word.
+- `match_mode: all`: inserta todas las imágenes coincidentes.
+
+Ejemplo:
+
+```yaml
+- id: esquema_porticos
+  source_file_regex: "(?i)porticos\\.docx$"
+  source_trigger_regex: "(?i)esquema|detalle"
+  docx_image: true
+  image_offset_after_trigger: 1
+  image_width_inches: 5.8
+  match_mode: "all"
+  target_placeholder: "{{ESQUEMAS_PORTICOS}}"
+```
+
+## Uso
+
+```bash
+python src/cype_memoria_automation.py \
+  --source-dir datos/fuentes \
+  --template-docx datos/plantilla_memoria.docx \
+  --mapping-yaml datos/mapeo.yaml \
+  --output-docx salida/memoria_final.docx
+```
+
+### Reglas de texto DOCX (actualizado)
+
+Cuando una regla usa `text_after_trigger: true`, los párrafos capturados:
+
+- se insertan como viñetas (`•`) en estilo de cuerpo,
+- omiten párrafos que tengan imágenes embebidas (evita conflictos de `rId` al copiar XML entre documentos),
+- respetan `text_until_regex` para cortar la captura.
+
+### Exportar también a PDF
+
+```bash
+python src/cype_memoria_automation.py \
+  --source-dir datos/fuentes \
+  --template-docx datos/plantilla_memoria.docx \
+  --mapping-yaml datos/mapeo.yaml \
+  --output-docx salida/memoria_final.docx \
+  --output-pdf
+```
+
+> `--output-pdf` requiere `soffice` (LibreOffice) disponible en PATH.
+
+## Limitaciones y buenas prácticas
+
+- Si CYPE cambia el texto de encabezados, ajustá los regex en el YAML.
+- Si el marcador no existe en la plantilla, la sección se informa como warning.
+- Este flujo está pensado para memorias "tabulares" (sin análisis textual complejo), justo el caso que describiste.
+
+## Próximos pasos sugeridos
+
+- Agregar reglas por tipo de proyecto (hormigón/metal/fundaciones especiales).
+- Incorporar una plantilla maestra por empresa.
+- Integrar este script al pipeline posterior al cálculo para que salga la memoria automáticamente.
